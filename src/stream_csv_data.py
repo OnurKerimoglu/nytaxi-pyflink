@@ -10,16 +10,24 @@ class CSVStreamer():
         self,
         server,
         topic,
-        fname
+        fname,
+        test=False
         ):
+        # input arguments
+        self.server = server
         self.topic = topic
+        self.fname = fname
+        self.test = test
+
+        # read the csv
         rootpath = os.path.dirname(os.path.dirname(__file__))
         self.datapath = os.path.join(rootpath, 'data')
-        self.csvpath = os.path.join(self.datapath, fname)
+        self.csvpath = os.path.join(self.datapath, self.fname)
         self.df = self.get_df()
 
+        # get the producer
         self.producer = ConnectedJsonProducer(
-            server=server
+            server=self.server
            ).create_producer()
         print(f"initialized CSVStreamer for data file: {self.csvpath}")
     
@@ -28,6 +36,8 @@ class CSVStreamer():
         t0 = time()
         for index, row in self.df.iterrows():
             message = row.to_dict()
+            message['index'] = index
+            # message['event_timestamp'] = time() * 1000
             self.producer.send(
                 topic=self.topic,
                 value=message
@@ -48,6 +58,12 @@ class CSVStreamer():
             'passenger_count',
             'trip_distance',
             'tip_amount']]
+        # df['lpep_pickup_datetime'] = pd.to_datetime(df['lpep_pickup_datetime'])
+        # df['lpep_dropoff_datetime'] = pd.to_datetime(df['lpep_dropoff_datetime'])
+        # df['passenger_count'] = df['passenger_count'].astype(int)
+        if self.test:
+            df = df.head(100)
+        print(f'Loaded {df.shape[0]} rows of {self.csvpath} with fields:\n{df.dtypes}')
         return df
 
 
@@ -55,5 +71,6 @@ if __name__ == "__main__":
     csv_streamer = CSVStreamer(
         server='localhost:9092',
         topic='green-trips',
-        fname='green_tripdata_2019-10.csv.gz')
+        fname='green_tripdata_2019-10.csv.gz',
+        test=True)
     csv_streamer.send_all()
