@@ -36,7 +36,7 @@ class CSVStreamer():
         t0 = time()
         for index, row in self.df.iterrows():
             message = row.to_dict()
-            message['index'] = index
+            message['row_index'] = index
             # message['event_timestamp'] = time() * 1000
             self.producer.send(
                 topic=self.topic,
