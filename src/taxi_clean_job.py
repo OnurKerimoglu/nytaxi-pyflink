@@ -3,14 +3,20 @@ from pyflink.table import EnvironmentSettings, DataTypes, TableEnvironment, Stre
 from pyflink.common.watermark_strategy import WatermarkStrategy
 from pyflink.common.time import Duration
 
-def create_events_aggregated_sink(t_env):
-    table_name = 'processed_aggregated'
+def create_taxi_events_sink(t_env):
+    table_name = 'taxi_events_cleaned'
     sink_ddl = f"""
         CREATE TABLE {table_name} (
-            event_hour TIMESTAMP(3),
-            test_data INT,
-            num_hits BIGINT,
-            PRIMARY KEY (event_hour, test_data) NOT ENFORCED
+            lpep_pickup_datetime VARCHAR,
+            lpep_dropoff_datetime VARCHAR,
+            PULocationID INTEGER,
+            DOLocationID INTEGER,
+            passenger_count INTEGER,
+            trip_distance FLOAT,
+            tip_amount FLOAT,
+            row_index INTEGER,
+            pickup_timestamp TIMESTAMP,
+            PRIMARY KEY (row_index) NOT ENFORCED
         ) WITH (
             'connector' = 'jdbc',
             'url' = 'jdbc:postgresql://postgres:5432/postgres',
@@ -24,19 +30,19 @@ def create_events_aggregated_sink(t_env):
     return table_name
 
 def create_events_source_kafka(t_env):
-    table_name = "processed"
+    table_name = "taxi_events_source"
     source_ddl = f"""
         CREATE TABLE {table_name} (
             lpep_pickup_datetime VARCHAR,
             lpep_dropoff_datetime VARCHAR,
-            PULocationID BIGINT,
-            DOLocationID BIGINT,
-            passenger_count SMALLINT,
+            PULocationID INTEGER,
+            DOLocationID INTEGER,
+            passenger_count INTEGER,
             trip_distance FLOAT,
             tip_amount FLOAT,
-            index BIGINT,
-            event_watermark AS TO_TIMESTAMP_LTZ(event_timestamp, 3),
-            WATERMARK for event_watermark as event_watermark - INTERVAL '5' SECOND
+            row_index INTEGER,
+            pickup_timestamp AS TO_TIMESTAMP(lpep_pickup_datetime, 'yyyy-MM-dd HH:mm:ss'),
+            WATERMARK for pickup_timestamp as pickup_timestamp - INTERVAL '5' SECOND
         ) WITH (
             'connector' = 'kafka',
             'properties.bootstrap.servers' = 'redpanda-1:29092',
@@ -49,6 +55,31 @@ def create_events_source_kafka(t_env):
     t_env.execute_sql(source_ddl)
     return table_name
 
+def log_processing():
+    # Set up the execution environment
+    env = StreamExecutionEnvironment.get_execution_environment()
+    env.enable_checkpointing(10 * 1000)
+    # env.set_parallelism(1)
+
+    # Set up the table environment
+    settings = EnvironmentSettings.new_instance().in_streaming_mode().build()
+    t_env = StreamTableEnvironment.create(env, environment_settings=settings)
+    try:
+        # Create Kafka table
+        source_table = create_events_source_kafka(t_env)
+        postgres_sink = create_taxi_events_sink(t_env)
+        # write records to postgres too!
+        t_env.execute_sql(
+            f"""
+            INSERT INTO {postgres_sink}
+            SELECT
+                *
+            FROM {source_table}
+            """
+        ).wait()
+
+    except Exception as e:
+        print("Writing records from Kafka to JDBC failed:", str(e))
 
 def log_aggregation():
     # Set up the execution environment
@@ -93,4 +124,5 @@ def log_aggregation():
 
 
 if __name__ == '__main__':
-    log_aggregation()
+    log_processing()
+    # log_aggregation()
