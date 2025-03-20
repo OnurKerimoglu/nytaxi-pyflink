@@ -11,13 +11,15 @@ class CSVStreamer():
         server,
         topic,
         fname,
-        test=False
+        offset=0,
+        limit=-1
         ):
         # input arguments
         self.server = server
         self.topic = topic
         self.fname = fname
-        self.test = test
+        self.offset = offset
+        self.limit = limit
 
         # read the csv
         rootpath = os.path.dirname(os.path.dirname(__file__))
@@ -36,7 +38,6 @@ class CSVStreamer():
         t0 = time()
         for index, row in self.df.iterrows():
             message = row.to_dict()
-            message['row_index'] = index
             # message['event_timestamp'] = time() * 1000
             self.producer.send(
                 topic=self.topic,
@@ -50,7 +51,9 @@ class CSVStreamer():
 
     def get_df(self):
         df = pd.read_csv(self.csvpath)
+        df['row_index'] = range(df.shape[0])
         df = df[[
+            'row_index',
             'lpep_pickup_datetime',
             'lpep_dropoff_datetime',
             'PULocationID',
@@ -61,10 +64,12 @@ class CSVStreamer():
         # df['lpep_pickup_datetime'] = pd.to_datetime(df['lpep_pickup_datetime'])
         # df['lpep_dropoff_datetime'] = pd.to_datetime(df['lpep_dropoff_datetime'])
         # df['passenger_count'] = df['passenger_count'].astype(int)
-        if self.test:
-            df = df.head(100)
-        print(f'Loaded {df.shape[0]} rows of {self.csvpath} with fields:\n{df.dtypes}')
-        return df
+        if self.limit != -1:
+            df_sel = df.iloc[self.offset:min(self.offset + self.limit,df.shape[0]+1)]
+        else:
+            df_sel = df.iloc[self.offset:]
+        print(f'Loaded {df_sel.shape[0]} rows out of {df.shape[0]} from {self.csvpath} with fields:\n{df.dtypes}')
+        return df_sel
 
 
 if __name__ == "__main__":
@@ -72,5 +77,6 @@ if __name__ == "__main__":
         server='localhost:9092',
         topic='green-trips',
         fname='green_tripdata_2019-10.csv.gz',
-        test=True)
+        offset=100,
+        limit=100)
     csv_streamer.send_all()
