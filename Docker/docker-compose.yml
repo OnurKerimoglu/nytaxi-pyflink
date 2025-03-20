@@ -47,8 +47,8 @@ services:
       - "8081:8081"
     volumes:
       - ./:/opt/flink/usrlib
-      - ./keys/:/var/private/ssl/
-      - ./src/:/opt/src
+      - ../keys/:/var/private/ssl/
+      - ../src/:/opt/src
     command: jobmanager 
     extra_hosts:
       - "host.docker.internal:127.0.0.1" #// Linux
@@ -73,7 +73,7 @@ services:
       - "6122"
     volumes:
       - ./:/opt/flink/usrlib
-      - ./src/:/opt/src
+      - ../src/:/opt/src
     depends_on:
       - jobmanager
     command: taskmanager --taskmanager.registration.timeout 5 min
@@ -95,7 +95,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     volumes:
-      - "./postgres-data:/var/lib/postgresql/data:rw"
+      - "../postgres-data:/var/lib/postgresql/data:rw"
     ports:
       - "5432:5432"
     extra_hosts:
