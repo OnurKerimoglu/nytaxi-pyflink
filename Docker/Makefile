@@ -46,6 +46,9 @@ down:
 clean_job:
 	docker compose exec jobmanager ./bin/flink run -py /opt/src/taxi_clean_job.py --pyFiles /opt/src -d
 
+tumble_job:
+	docker compose exec jobmanager ./bin/flink run -py /opt/src/tumble_job.py --pyFiles /opt/src -d
+
 session_job:
 	docker compose exec jobmanager ./bin/flink run -py /opt/src/session_job.py --pyFiles /opt/src -d
 

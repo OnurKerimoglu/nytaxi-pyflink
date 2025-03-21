@@ -3,8 +3,8 @@ from pyflink.table import EnvironmentSettings, DataTypes, TableEnvironment, Stre
 from pyflink.common.watermark_strategy import WatermarkStrategy
 from pyflink.common.time import Duration
 
-def create_taxi_events_aggSessionW_sink(t_env):
-    table_name = 'taxi_events_agg_PUDO_5minSessionDOtime'
+def create_taxi_events_aggTumbleW_sink(t_env):
+    table_name = 'taxi_events_agg_PUDO_5minTumbleDOtime'
     sink_ddl = f"""
         CREATE TABLE {table_name} (
             event_hour TIMESTAMP(3),
@@ -50,7 +50,7 @@ def create_events_source_kafka(t_env):
     t_env.execute_sql(source_ddl)
     return table_name
 
-def log_aggregation_session():
+def log_aggregation_tumble():
     # Set up the execution environment
     env = StreamExecutionEnvironment.get_execution_environment()
     env.enable_checkpointing(10 * 1000)
@@ -73,14 +73,14 @@ def log_aggregation_session():
     try:
         # Create Kafka table
         source_table = create_events_source_kafka(t_env)
-        aggregated_table = create_taxi_events_aggSessionW_sink(t_env)
+        aggregated_table = create_taxi_events_aggTumbleW_sink(t_env)
 
         t_env.execute_sql(f"""
         INSERT INTO {aggregated_table}
         SELECT
             window_start AS event_hour,
             PU_DO_ID_pair,
-            SUM(1) AS num_trips
+            COUNT(*) AS num_trips
         FROM TABLE(
           TUMBLE(TABLE {source_table}, DESCRIPTOR(dropoff_timestamp), INTERVAL '5' MINUTE)
           )
@@ -90,5 +90,6 @@ def log_aggregation_session():
     except Exception as e:
         print("Writing records from Kafka to JDBC failed:", str(e))
 
+
 if __name__ == '__main__':
-    log_aggregation_session()
+    log_aggregation_tumble()
