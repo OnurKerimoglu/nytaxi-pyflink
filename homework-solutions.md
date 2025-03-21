@@ -26,18 +26,18 @@ Sending all 476386 rows in the table and flushing took 239.42 seconds.
 
 
 ## Question 5: Build a Sessionization Window (2 points)
+*Which pickup and drop off locations have the longest unbroken streak of taxi trips?*
 
-Now we have the data in the Kafka stream. It's time to process it.
+Quering the aggregated table:
+```
+SELECT window_start, window_end, pu_do_id_pair, num_trips
+FROM public.taxi_events_agg_pudo_5minsessiondotime
+order by num_trips desc
+limit 1;
+```
+yields:\\
 
-* Copy `aggregation_job.py` and rename it to `session_job.py`
-* Have it read from `green-trips` fixing the schema
-* Use a [session window](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/datastream/operators/windows/) with a gap of 5 minutes
-* Use `lpep_dropoff_datetime` time as your watermark with a 5 second tolerance
-* Which pickup and drop off locations have the longest unbroken streak of taxi trips?
-
-
-## Submitting the solutions
-
-- Form for submitting: https://courses.datatalks.club/de-zoomcamp-2025/homework/hw6
-- Deadline: See the website
+| window_start            | window_end              | pu_do_id_pair | num_trips |
+| ----------------------- | ----------------------- | ------------- | --------- |
+| 2019-10-16 18:18:42.000 |	2019-10-16 19:26:16.000 | 95-95         | 44        |
 
