@@ -7,10 +7,11 @@ def create_taxi_events_aggSessionW_sink(t_env):
     table_name = 'taxi_events_agg_PUDO_5minSessionDOtime'
     sink_ddl = f"""
         CREATE TABLE {table_name} (
-            event_hour TIMESTAMP(3),
+            window_start TIMESTAMP(3),
+            window_end TIMESTAMP(3),
             PU_DO_ID_pair VARCHAR,
             num_trips BIGINT,
-            PRIMARY KEY (event_hour, PU_DO_ID_pair) NOT ENFORCED
+            PRIMARY KEY (window_start, window_end, PU_DO_ID_pair) NOT ENFORCED
         ) WITH (
             'connector' = 'jdbc',
             'url' = 'jdbc:postgresql://postgres:5432/postgres',
@@ -78,13 +79,14 @@ def log_aggregation_session():
         t_env.execute_sql(f"""
         INSERT INTO {aggregated_table}
         SELECT
-            window_start AS event_hour,
+            SESSION_START(dropoff_timestamp,  INTERVAL '5' MINUTE),
+            SESSION_END(dropoff_timestamp,  INTERVAL '5' MINUTE),
             PU_DO_ID_pair,
             SUM(1) AS num_trips
-        FROM TABLE(
-          TUMBLE(TABLE {source_table}, DESCRIPTOR(dropoff_timestamp), INTERVAL '5' MINUTE)
-          )
-        GROUP BY window_start, PU_DO_ID_pair ;
+        FROM {source_table}
+        GROUP BY
+        SESSION(dropoff_timestamp,  INTERVAL '5' MINUTE),
+        PU_DO_ID_pair ;
         """).wait()
 
     except Exception as e:
